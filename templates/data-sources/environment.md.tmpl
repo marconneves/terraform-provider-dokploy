@@ -1,0 +1,22 @@
+---
+page_title: "{{.Name}} Data Source - {{.ProviderName}}"
+subcategory: "Environment"
+description: |-
+{{ if .Description -}}
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+{{- end }}
+---
+
+# {{.Name}} (Data Source)
+
+{{ if .Description -}}
+{{ .Description | trimspace }}
+{{- end }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
