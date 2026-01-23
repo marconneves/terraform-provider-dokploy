@@ -29,9 +29,11 @@ resource "dokploy_project" "example" {
 ### Optional
 
 - `description` (String)
+- `env` (String)
 
 ### Read-Only
 
+- `env_id` (String)
 - `id` (String) The ID of this resource.
 
 ## Import

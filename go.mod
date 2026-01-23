@@ -1,4 +1,4 @@
-module github.com/j0bit/terraform-provider-dokploy
+module github.com/marconneves/terraform-provider-dokploy
 
 go 1.24.0
 

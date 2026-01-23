@@ -9,7 +9,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/j0bit/terraform-provider-dokploy/internal/provider"
+	"github.com/marconneves/terraform-provider-dokploy/internal/provider"
 )
 
 var (
@@ -31,7 +31,7 @@ func main() {
 		// TODO: Update this string with the published name of your provider.
 		// Also update the tfplugindocs generate command to either remove the
 		// -provider-name flag or set its value to the updated provider name.
-		Address: "registry.terraform.io/j0bit/dokploy",
+		Address: "registry.terraform.io/marconneves/dokploy",
 		Debug:   debug,
 	}
 
