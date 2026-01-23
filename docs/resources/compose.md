@@ -30,6 +30,7 @@ description: |-
 - `custom_git_ssh_key_id` (String)
 - `custom_git_url` (String)
 - `deploy_on_create` (Boolean)
+- `server_id` (String)
 - `source_type` (String)
 
 ### Read-Only

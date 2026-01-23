@@ -43,6 +43,7 @@ description: |-
 - `github_watch_paths` (List of String)
 - `password` (String, Sensitive)
 - `repository_url` (String)
+- `server_id` (String)
 - `source_type` (String)
 - `trigger_type` (String)
 - `username` (String)
