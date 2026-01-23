@@ -93,7 +93,15 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 }
 
 func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewProjectDataSource,
+		NewEnvironmentDataSource,
+		NewApplicationDataSource,
+		NewComposeDataSource,
+		NewDatabaseDataSource,
+		NewSSHKeyDataSource,
+		NewDomainDataSource,
+	}
 }
 
 func (p *DokployProvider) Functions(_ context.Context) []func() function.Function {
