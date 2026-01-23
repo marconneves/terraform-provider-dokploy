@@ -39,6 +39,7 @@ type ComposeResourceModel struct {
 	ComposePath        types.String `tfsdk:"compose_path"`
 	AutoDeploy         types.Bool   `tfsdk:"auto_deploy"`
 	DeployOnCreate     types.Bool   `tfsdk:"deploy_on_create"`
+	ServerID           types.String `tfsdk:"server_id"`
 }
 
 func (r *ComposeResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -106,6 +107,10 @@ func (r *ComposeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"deploy_on_create": schema.BoolAttribute{
 				Optional: true,
 			},
+			"server_id": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -154,6 +159,7 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 		CustomGitSSHKeyId: plan.CustomGitSSHKeyID.ValueString(),
 		ComposePath:       plan.ComposePath.ValueString(),
 		AutoDeploy:        plan.AutoDeploy.ValueBool(),
+		ServerID:          plan.ServerID.ValueString(),
 	}
 
 	createdComp, err := r.client.CreateCompose(comp)
@@ -166,6 +172,13 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 	plan.SourceType = types.StringValue(createdComp.SourceType)
 	plan.ComposePath = types.StringValue(createdComp.ComposePath)
 	plan.AutoDeploy = types.BoolValue(createdComp.AutoDeploy)
+
+	if createdComp.ServerID != "" {
+		plan.ServerID = types.StringValue(createdComp.ServerID)
+	} else if !plan.ServerID.IsNull() {
+		plan.ServerID = types.StringNull()
+	}
+
 	if createdComp.ComposeFile != "" {
 		plan.ComposeFileContent = types.StringValue(createdComp.ComposeFile)
 	} else {
@@ -211,6 +224,12 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 	state.ComposePath = types.StringValue(comp.ComposePath)
 	state.AutoDeploy = types.BoolValue(comp.AutoDeploy)
 
+	if comp.ServerID != "" {
+		state.ServerID = types.StringValue(comp.ServerID)
+	} else if !state.ServerID.IsNull() {
+		state.ServerID = types.StringNull()
+	}
+
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -234,6 +253,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		CustomGitSSHKeyId: plan.CustomGitSSHKeyID.ValueString(),
 		ComposePath:       plan.ComposePath.ValueString(),
 		AutoDeploy:        plan.AutoDeploy.ValueBool(),
+		ServerID:          plan.ServerID.ValueString(),
 	}
 
 	updatedComp, err := r.client.UpdateCompose(comp)

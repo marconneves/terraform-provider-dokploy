@@ -45,6 +45,7 @@ type ApplicationResourceModel struct {
 	Password           types.String `tfsdk:"password"`
 	AutoDeploy         types.Bool   `tfsdk:"auto_deploy"`
 	DeployOnCreate     types.Bool   `tfsdk:"deploy_on_create"`
+	ServerID           types.String `tfsdk:"server_id"`
 	// GitHub Provider fields
 	GithubRepository types.String `tfsdk:"github_repository"`
 	GithubOwner      types.String `tfsdk:"github_owner"`
@@ -133,6 +134,10 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"deploy_on_create": schema.BoolAttribute{
 				Optional: true,
+			},
+			"server_id": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
 			},
 			"github_repository": schema.StringAttribute{
 				Optional: true,
@@ -226,6 +231,7 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 		Username:           plan.Username.ValueString(),
 		Password:           plan.Password.ValueString(),
 		AutoDeploy:         plan.AutoDeploy.ValueBool(),
+		ServerID:           plan.ServerID.ValueString(),
 	}
 
 	createdApp, err := r.client.CreateApplication(app)
@@ -264,6 +270,12 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	plan.AutoDeploy = types.BoolValue(createdApp.AutoDeploy)
+
+	if createdApp.ServerID != "" {
+		plan.ServerID = types.StringValue(createdApp.ServerID)
+	} else if !plan.ServerID.IsNull() {
+		plan.ServerID = types.StringNull()
+	}
 
 	// Save GitHub provider if GitHub fields are provided
 	if !plan.GithubID.IsNull() && !plan.GithubID.IsUnknown() && plan.GithubID.ValueString() != "" {
@@ -398,6 +410,12 @@ func (r *ApplicationResource) Read(ctx context.Context, req resource.ReadRequest
 
 	// AutoDeploy is Computed boolean - always set from API
 	state.AutoDeploy = types.BoolValue(app.AutoDeploy)
+
+	if app.ServerID != "" {
+		state.ServerID = types.StringValue(app.ServerID)
+	} else if !state.ServerID.IsNull() {
+		state.ServerID = types.StringNull()
+	}
 
 	// Optional custom git fields
 	if app.CustomGitUrl != "" {
@@ -535,6 +553,7 @@ func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateReq
 		Username:           plan.Username.ValueString(),
 		Password:           plan.Password.ValueString(),
 		AutoDeploy:         plan.AutoDeploy.ValueBool(),
+		ServerID:           plan.ServerID.ValueString(),
 	}
 
 	updatedApp, err := r.client.UpdateApplication(app)
