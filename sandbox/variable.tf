@@ -24,7 +24,7 @@ variable "github_token" {
 variable "github_owner" {
   type        = string
   description = "GitHub Organization or User"
-  default     = "j0bIT"
+  default     = "marconneves"
 }
 
 variable "custom_git_url" {

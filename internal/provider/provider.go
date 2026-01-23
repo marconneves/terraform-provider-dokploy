@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/j0bit/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/client"
 )
 
 var _ provider.Provider = &DokployProvider{}
