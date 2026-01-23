@@ -112,10 +112,11 @@ type projectResponse struct {
 	Project Project `json:"project"`
 }
 
-func (c *DokployClient) CreateProject(name, description string) (*Project, error) {
+func (c *DokployClient) CreateProject(name, description, env string) (*Project, error) {
 	payload := map[string]string{
 		"name":        name,
 		"description": description,
+		"env":         env,
 	}
 	resp, err := c.doRequest("POST", "project.create", payload)
 	if err != nil {
@@ -141,6 +142,19 @@ func (c *DokployClient) GetProject(id string) (*Project, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func (c *DokployClient) ListProjects() ([]Project, error) {
+	resp, err := c.doRequest("GET", "project.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var list []Project
+	if err := json.Unmarshal(resp, &list); err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func (c *DokployClient) DeleteProject(id string) error {
@@ -172,15 +186,38 @@ func (c *DokployClient) UpdateProject(id, name, description string) (*Project, e
 // --- Environment ---
 
 type Environment struct {
-	ID          string     `json:"environmentId"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	ProjectID   string     `json:"projectId"`
-	Postgres    []Database `json:"postgres"`
-	Mysql       []Database `json:"mysql"`
-	Mariadb     []Database `json:"mariadb"`
-	Mongo       []Database `json:"mongo"`
-	Redis       []Database `json:"redis"`
+	ID           string        `json:"environmentId"`
+	Name         string        `json:"name"`
+	Description  string        `json:"description"`
+	ProjectID    string        `json:"projectId"`
+	Postgres     []Database    `json:"postgres"`
+	Mysql        []Database    `json:"mysql"`
+	Mariadb      []Database    `json:"mariadb"`
+	Mongo        []Database    `json:"mongo"`
+	Redis        []Database    `json:"redis"`
+	Applications []Application `json:"applications"`
+	Composes     []Compose     `json:"composes"`
+}
+
+func (c *DokployClient) GetEnvironment(id string) (*Environment, error) {
+	endpoint := fmt.Sprintf("environment.one?environmentId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var wrapper struct {
+		Environment Environment `json:"environment"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.Environment.ID != "" {
+		return &wrapper.Environment, nil
+	}
+
+	var result Environment
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func (c *DokployClient) CreateEnvironment(projectID, name, description string) (*Environment, error) {
@@ -1030,6 +1067,20 @@ func (c *DokployClient) GetDomainsByCompose(composeID string) ([]Domain, error) 
 		return nil, err
 	}
 	return comp.Domains, nil
+}
+
+func (c *DokployClient) GetDomain(id string) (*Domain, error) {
+	endpoint := fmt.Sprintf("domain.one?domainId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Domain
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func (c *DokployClient) DeleteDomain(id string) error {
