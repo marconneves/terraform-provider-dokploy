@@ -1,0 +1,28 @@
+---
+page_title: "{{.Name}} Data Source - {{.ProviderName}}"
+subcategory: "User"
+description: |-
+{{ if .Description -}}
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+{{- end }}
+---
+
+# {{.Name}} (Data Source)
+
+{{ if .Description -}}
+{{ .Description | trimspace }}
+{{- end }}
+
+## Example Usage
+
+```terraform
+data "dokploy_user" "me" {
+  email = "admin@example.com"
+}
+
+output "user_role" {
+  value = data.dokploy_user.me.role
+}
+```
+
+{{ .SchemaMarkdown | trimspace }}

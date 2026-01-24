@@ -73,8 +73,11 @@ type User struct {
 	ID             string `json:"userId"`
 	Email          string `json:"email"`
 	OrganizationID string `json:"organizationId"`
+	Password       string `json:"password,omitempty"`
+	Role           string `json:"role,omitempty"`
 }
 
+// GetUser returns the current authenticated user.
 func (c *DokployClient) GetUser() (*User, error) {
 	resp, err := c.doRequest("GET", "user.get", nil)
 	if err != nil {
@@ -82,21 +85,95 @@ func (c *DokployClient) GetUser() (*User, error) {
 	}
 
 	var wrapper struct {
-		User User `json:"user"` // Assuming wrapper based on other endpoints
+		User User `json:"user"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.User.ID != "" {
-		// If org ID is missing on user, maybe we check roles/orgs?
-		// For now assuming simple case.
 		return &wrapper.User, nil
 	}
 
-	// Try direct
 	var user User
 	if err := json.Unmarshal(resp, &user); err == nil && user.ID != "" {
 		return &user, nil
 	}
 
 	return nil, fmt.Errorf("failed to parse user response")
+}
+
+func (c *DokployClient) CreateUser(email, password, role string) (*User, error) {
+	payload := map[string]string{
+		"email":    email,
+		"password": password,
+		"role":     role,
+	}
+	// Assuming auth.create or user.create
+	resp, err := c.doRequest("POST", "user.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var wrapper struct {
+		User User `json:"user"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.User.ID != "" {
+		return &wrapper.User, nil
+	}
+
+	var user User
+	if err := json.Unmarshal(resp, &user); err == nil {
+		return &user, nil
+	}
+	return nil, fmt.Errorf("failed to parse create user response")
+}
+
+func (c *DokployClient) GetUserByID(id string) (*User, error) {
+	// Assuming user.one?userId=...
+	endpoint := fmt.Sprintf("user.one?userId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var wrapper struct {
+		User User `json:"user"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.User.ID != "" {
+		return &wrapper.User, nil
+	}
+
+	var user User
+	if err := json.Unmarshal(resp, &user); err == nil {
+		return &user, nil
+	}
+	return nil, fmt.Errorf("failed to parse get user response")
+}
+
+func (c *DokployClient) ListUsers() ([]User, error) {
+	resp, err := c.doRequest("GET", "user.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var list []User
+	if err := json.Unmarshal(resp, &list); err == nil {
+		return list, nil
+	}
+
+	var wrapper struct {
+		Users []User `json:"users"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil {
+		return wrapper.Users, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse user.all response")
+}
+
+func (c *DokployClient) DeleteUser(id string) error {
+	payload := map[string]string{
+		"userId": id,
+	}
+	_, err := c.doRequest("POST", "user.remove", payload)
+	return err
 }
 
 // --- Project ---
@@ -1527,5 +1604,127 @@ func (c *DokployClient) DeleteServer(id string) error {
 		"serverId": id,
 	}
 	_, err := c.doRequest("POST", "server.remove", payload)
+	return err
+}
+
+// --- Registry ---
+
+type Registry struct {
+	ID            string `json:"registryId"`
+	Name          string `json:"name"`
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	ImageRegistry string `json:"imageRegistry"`
+	RegistryURL   string `json:"registryUrl,omitempty"`
+}
+
+func (c *DokployClient) CreateRegistry(registry Registry) (*Registry, error) {
+	payload := map[string]interface{}{
+		"name":          registry.Name,
+		"username":      registry.Username,
+		"password":      registry.Password,
+		"imageRegistry": registry.ImageRegistry,
+	}
+	if registry.RegistryURL != "" {
+		payload["registryUrl"] = registry.RegistryURL
+	}
+
+	resp, err := c.doRequest("POST", "registry.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var wrapper struct {
+		Registry Registry `json:"registry"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.Registry.ID != "" {
+		return &wrapper.Registry, nil
+	}
+
+	var result Registry
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) GetRegistry(id string) (*Registry, error) {
+	endpoint := fmt.Sprintf("registry.one?registryId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var wrapper struct {
+		Registry Registry `json:"registry"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.Registry.ID != "" {
+		return &wrapper.Registry, nil
+	}
+
+	var result Registry
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) ListRegistries() ([]Registry, error) {
+	resp, err := c.doRequest("GET", "registry.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var list []Registry
+	if err := json.Unmarshal(resp, &list); err == nil {
+		return list, nil
+	}
+
+	var wrapper struct {
+		Registries []Registry `json:"registries"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil {
+		return wrapper.Registries, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse registry.all response")
+}
+
+func (c *DokployClient) UpdateRegistry(registry Registry) (*Registry, error) {
+	payload := map[string]interface{}{
+		"registryId":    registry.ID,
+		"name":          registry.Name,
+		"username":      registry.Username,
+		"password":      registry.Password,
+		"imageRegistry": registry.ImageRegistry,
+	}
+	if registry.RegistryURL != "" {
+		payload["registryUrl"] = registry.RegistryURL
+	}
+
+	resp, err := c.doRequest("POST", "registry.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var wrapper struct {
+		Registry Registry `json:"registry"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.Registry.ID != "" {
+		return &wrapper.Registry, nil
+	}
+
+	var result Registry
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) DeleteRegistry(id string) error {
+	payload := map[string]string{
+		"registryId": id,
+	}
+	_, err := c.doRequest("POST", "registry.remove", payload)
 	return err
 }
