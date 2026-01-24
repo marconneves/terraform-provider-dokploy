@@ -90,6 +90,9 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewEnvironmentVariablesResource,
 		NewSSHKeyResource,
 		NewServerResource,
+		NewRegistryResource,
+		NewUserResource,
+		NewDeploymentResource,
 	}
 }
 
@@ -103,6 +106,9 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewSSHKeyDataSource,
 		NewDomainDataSource,
 		NewServerDataSource,
+		NewRegistryDataSource,
+		NewUserDataSource,
+		NewDeploymentDataSource,
 	}
 }
 
