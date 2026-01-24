@@ -273,8 +273,6 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 
 	if createdApp.ServerID != "" {
 		plan.ServerID = types.StringValue(createdApp.ServerID)
-	} else if !plan.ServerID.IsNull() {
-		plan.ServerID = types.StringNull()
 	}
 
 	// Save GitHub provider if GitHub fields are provided
@@ -413,8 +411,6 @@ func (r *ApplicationResource) Read(ctx context.Context, req resource.ReadRequest
 
 	if app.ServerID != "" {
 		state.ServerID = types.StringValue(app.ServerID)
-	} else if !state.ServerID.IsNull() {
-		state.ServerID = types.StringNull()
 	}
 
 	// Optional custom git fields
