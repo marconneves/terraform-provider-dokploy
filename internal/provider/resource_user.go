@@ -60,8 +60,8 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				},
 			},
 			"role": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
 				Description: "Role of the user (e.g., 'user', 'admin')",
 			},
 			"organization_id": schema.StringAttribute{
