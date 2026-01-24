@@ -322,6 +322,10 @@ func (c *DokployClient) CreateApplication(app Application) (*Application, error)
 		"environmentId": app.EnvironmentID,
 	}
 
+	if app.ServerID != "" {
+		createPayload["serverId"] = app.ServerID
+	}
+
 	resp, err := c.doRequest("POST", "application.create", createPayload)
 	if err != nil {
 		return nil, err
@@ -544,6 +548,10 @@ func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 		"name":          comp.Name,
 		"composeType":   "docker-compose",
 		"appName":       comp.Name,
+	}
+
+	if comp.ServerID != "" {
+		payload["serverId"] = comp.ServerID
 	}
 
 	// If raw content provided, include it
