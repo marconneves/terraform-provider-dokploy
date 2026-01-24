@@ -175,8 +175,6 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 
 	if createdComp.ServerID != "" {
 		plan.ServerID = types.StringValue(createdComp.ServerID)
-	} else if !plan.ServerID.IsNull() {
-		plan.ServerID = types.StringNull()
 	}
 
 	if createdComp.ComposeFile != "" {
@@ -226,8 +224,6 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	if comp.ServerID != "" {
 		state.ServerID = types.StringValue(comp.ServerID)
-	} else if !state.ServerID.IsNull() {
-		state.ServerID = types.StringNull()
 	}
 
 	diags = resp.State.Set(ctx, state)
