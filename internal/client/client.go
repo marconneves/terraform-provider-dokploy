@@ -535,6 +535,7 @@ type Compose struct {
 	AutoDeploy        bool     `json:"autoDeploy"`
 	ServerID          string   `json:"serverId,omitempty"`
 	Domains           []Domain `json:"domains"`
+	Env               string   `json:"env"`
 }
 
 func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
@@ -1167,6 +1168,19 @@ type EnvironmentVariable struct {
 	Scope         string `json:"scope"`
 }
 
+func (c *DokployClient) SaveApplicationEnv(appID, env string, createEnvFile *bool) error {
+	payload := map[string]interface{}{
+		"applicationId": appID,
+		"env":           env,
+	}
+	if createEnvFile != nil {
+		payload["createEnvFile"] = *createEnvFile
+	}
+
+	_, err := c.doRequest("POST", "application.saveEnvironment", payload)
+	return err
+}
+
 func (c *DokployClient) UpdateApplicationEnv(appID string, updateFn func(envMap map[string]string), createEnvFile *bool) error {
 	var lastErr error
 	for i := 0; i < 5; i++ { // Retry up to 5 times
@@ -1186,15 +1200,7 @@ func (c *DokployClient) UpdateApplicationEnv(appID string, updateFn func(envMap 
 			return nil // No changes to be made
 		}
 
-		payload := map[string]interface{}{
-			"applicationId": appID,
-			"env":           newEnvStr,
-		}
-		if createEnvFile != nil {
-			payload["createEnvFile"] = *createEnvFile
-		}
-
-		_, err = c.doRequest("POST", "application.saveEnvironment", payload)
+		err = c.SaveApplicationEnv(appID, newEnvStr, createEnvFile)
 		if err != nil {
 			lastErr = err
 			time.Sleep(time.Duration(100*(i+1)) * time.Millisecond) // Backoff
@@ -1210,6 +1216,57 @@ func (c *DokployClient) UpdateApplicationEnv(appID string, updateFn func(envMap 
 			continue
 		}
 		if verifyApp.Env == newEnvStr {
+			return nil // Success
+		}
+		lastErr = fmt.Errorf("environment update conflict, retrying")
+	}
+	return lastErr
+}
+
+func (c *DokployClient) SaveComposeEnv(composeID, env string) error {
+	payload := map[string]interface{}{
+		"composeId": composeID,
+		"env":       env,
+	}
+
+	_, err := c.doRequest("POST", "compose.saveEnvironment", payload)
+	return err
+}
+
+func (c *DokployClient) UpdateComposeEnv(composeID string, updateFn func(envMap map[string]string)) error {
+	var lastErr error
+	for i := 0; i < 5; i++ { // Retry up to 5 times
+		comp, err := c.GetCompose(composeID)
+		if err != nil {
+			return err
+		}
+
+		envMap := ParseEnv(comp.Env)
+		originalEnvStr := comp.Env
+
+		updateFn(envMap) // Modify the map
+
+		newEnvStr := formatEnv(envMap)
+
+		if newEnvStr == originalEnvStr {
+			return nil // No changes to be made
+		}
+
+		err = c.SaveComposeEnv(composeID, newEnvStr)
+		if err != nil {
+			lastErr = err
+			time.Sleep(time.Duration(100*(i+1)) * time.Millisecond) // Backoff
+			continue
+		}
+
+		// Verify write
+		verifyComp, err := c.GetCompose(composeID)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to verify environment update: %w", err)
+			time.Sleep(time.Duration(100*(i+1)) * time.Millisecond)
+			continue
+		}
+		if verifyComp.Env == newEnvStr {
 			return nil // Success
 		}
 		lastErr = fmt.Errorf("environment update conflict, retrying")
