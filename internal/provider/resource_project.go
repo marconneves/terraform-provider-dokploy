@@ -89,10 +89,21 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	// If environments are missing (API might not return them on creation), fetch the project
+	if len(project.Environments) == 0 {
+		p, err := r.client.GetProject(project.ID)
+		if err == nil {
+			project = p
+		} else {
+			resp.Diagnostics.AddWarning("Error fetching project details", "Could not fetch project details to retrieve environment ID. EnvID may be null.")
+		}
+	}
+
 	// Update state
 	plan.ID = types.StringValue(project.ID)
 	plan.Name = types.StringValue(project.Name)
 	plan.Description = types.StringValue(project.Description)
+	plan.EnvID = types.StringNull() // Default to Null to avoid "provider returned unknown value" error
 
 	// Find the environment ID
 	if len(project.Environments) > 0 {
@@ -170,6 +181,10 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 	plan.ID = types.StringValue(project.ID)
 	plan.Name = types.StringValue(project.Name)
 	plan.Description = types.StringValue(project.Description)
+
+	if plan.EnvID.IsUnknown() {
+		plan.EnvID = state.EnvID
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
