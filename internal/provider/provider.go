@@ -92,6 +92,7 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewServerResource,
 		NewRegistryResource,
 		NewUserResource,
+		NewDeploymentResource,
 	}
 }
 
@@ -107,6 +108,7 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewServerDataSource,
 		NewRegistryDataSource,
 		NewUserDataSource,
+		NewDeploymentDataSource,
 	}
 }
 
