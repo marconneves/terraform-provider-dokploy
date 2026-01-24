@@ -138,6 +138,9 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"server_id": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"github_repository": schema.StringAttribute{
 				Optional: true,

@@ -110,6 +110,9 @@ func (r *ComposeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"server_id": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 		},
 	}
