@@ -6,23 +6,32 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"strings"
 	"time"
 )
 
 // DokployClient holds connection details.
 type DokployClient struct {
-	BaseURL    string
-	APIKey     string
-	HTTPClient *http.Client
+	BaseURL      string
+	APIKey       string
+	Email        string
+	Password     string
+	SessionToken string
+	HTTPClient   *http.Client
 }
 
-func NewDokployClient(baseURL, apiKey string) *DokployClient {
+func NewDokployClient(baseURL, apiKey, email, password string) *DokployClient {
+	jar, _ := cookiejar.New(nil)
 	return &DokployClient{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
+		BaseURL:  baseURL,
+		APIKey:   apiKey,
+		Email:    email,
+		Password: password,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
+			Jar:     jar,
 		},
 	}
 }
@@ -65,6 +74,348 @@ func (c *DokployClient) doRequest(method, endpoint string, body interface{}) ([]
 	}
 
 	return respBytes, nil
+}
+
+func (c *DokployClient) SignIn() error {
+	if c.Email == "" || c.Password == "" {
+		return fmt.Errorf("email and password are required for sign in")
+	}
+
+	payload := map[string]string{
+		"email":    c.Email,
+		"password": c.Password,
+	}
+
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/auth/sign-in/email", c.BaseURL)
+	// Adjust base URL if it ends with /api, as auth is usually /api/auth
+	// But the user provided http://34.95.233.99:3000/api/auth/sign-in/email
+	// And standard BaseURL is .../api
+	// So we should check if BaseURL already contains /api
+	if strings.HasSuffix(c.BaseURL, "/api") {
+		url = fmt.Sprintf("%s/auth/sign-in/email", c.BaseURL)
+	} else {
+		// Assuming BaseURL is root, append /api
+		url = fmt.Sprintf("%s/api/auth/sign-in/email", c.BaseURL)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("sign in failed: %s - %s", resp.Status, string(respBytes))
+	}
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		return fmt.Errorf("failed to parse sign in response: %w", err)
+	}
+
+	c.SessionToken = result.Token
+	return nil
+}
+
+func (c *DokployClient) doSessionRequest(method, endpoint string, body interface{}) ([]byte, error) {
+	if c.SessionToken == "" {
+		if err := c.SignIn(); err != nil {
+			return nil, err
+		}
+	}
+
+	var reqBody io.Reader
+	if body != nil {
+		jsonBytes, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		reqBody = bytes.NewBuffer(jsonBytes)
+	}
+
+	// TRPC endpoints are usually /api/trpc/...
+	// If BaseURL is /api, we append /trpc/...
+	url := fmt.Sprintf("%s/trpc/%s", c.BaseURL, endpoint)
+
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	// The session token is passed in a cookie
+	// Cookie: better-auth.session_token=...
+	// Note: The example showed the token being part of the value, possibly needing URL encoding if it contains special chars?
+	// The example token was "yYWtyWL6yH909VA4p6QQjmcq2sMBiLAm" and the cookie value "yYWtyWL6yH909VA4p6QQjmcq2sMBiLAm.XnBc..."
+	// It seems there is a signature? Or maybe just the token is enough?
+	// The response from sign-in gives a "token". Let's try setting it directly.
+	// better-auth might require the full signed cookie if it uses signatures.
+	// However, usually the client gets the cookie from the Set-Cookie header.
+	// But the sign-in response body had "token".
+	// Let's try setting the cookie with the token we got.
+	// If the server expects a signed cookie, we might need to rely on the http client cookie jar?
+	// The example shows: Cookie: better-auth.session_token=yYWtyWL6yH909VA4p6QQjmcq2sMBiLAm.XnBc...
+	// This suggests the token returned in JSON might need to be used as is, or maybe the server sets a cookie?
+	// Let's assume for now we can just send the token as the cookie value or bearer?
+	// Wait, the user provided a fetch example where they manually construct the header.
+	// And the cookie value seems to be the token plus a signature (the part after the dot).
+	// If the sign-in response returns just the token, we might be missing the signature if it's required.
+	// BUT, if we use a CookieJar, the http client will handle Set-Cookie headers automatically.
+	// Let's check if we should enable CookieJar.
+	// The user provided fetch example shows manual header construction.
+	// "token":"yYWtyWL6yH909VA4p6QQjmcq2sMBiLAm"
+	// Cookie: better-auth.session_token=yYWtyWL6yH909VA4p6QQjmcq2sMBiLAm.XnBc...
+	// It seems the token in JSON is just the payload, and the cookie has a signature.
+	// We should probably rely on the Set-Cookie header from the sign-in response.
+	// Let's update SignIn to use a CookieJar or capture the Set-Cookie header.
+
+	// Updating logic to use CookieJar would be best practice, but let's see if we can just set the cookie if we have it.
+	// If we don't have a jar, we can manually manage it.
+	// Let's try to capture the cookie from SignIn.
+
+	// Cookie is handled by the Jar if SignIn succeeded and Set-Cookie was present.
+	// If the server didn't set the cookie but returned a token, we might need to manually set it,
+	// but the review suggests we rely on the signed cookie from the server.
+	// We'll trust the Jar.
+
+	// Add other headers from example
+	req.Header.Set("x-api-key", c.APIKey) // Some endpoints might still use it? Unlikely for session based.
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("TRPC error: %s - %s", resp.Status, string(respBytes))
+	}
+
+	return respBytes, nil
+}
+
+// TRPCResponse generic wrapper
+type TRPCResponse[T any] struct {
+	Result struct {
+		Data struct {
+			Json T `json:"json"`
+		} `json:"data"`
+	} `json:"result"`
+}
+
+// --- Organization ---
+
+type Organization struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Logo      string `json:"logo"`
+	OwnerId   string `json:"ownerId"`
+	Slug      string `json:"slug"`
+	CreatedAt string `json:"createdAt"`
+}
+
+func (c *DokployClient) CreateOrganization(name string, logo string) (*Organization, error) {
+	// 0: {json: {name: "teste", logo: "...", organizationId: ""}}
+	// The TRPC payload format is a bit specific: {"0":{"json":...}}
+	jsonPayload := map[string]interface{}{
+		"name":           name,
+		"organizationId": "", // Seemingly empty for create?
+	}
+	if logo != "" {
+		jsonPayload["logo"] = logo
+	}
+
+	payload := map[string]interface{}{
+		"0": map[string]interface{}{
+			"json": jsonPayload,
+		},
+	}
+
+	resp, err := c.doSessionRequest("POST", "organization.create?batch=1", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Response is an array: [{"result": ...}]
+	var response []TRPCResponse[Organization]
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return nil, err
+	}
+
+	if len(response) == 0 {
+		return nil, fmt.Errorf("empty response from organization.create")
+	}
+
+	return &response[0].Result.Data.Json, nil
+}
+
+func (c *DokployClient) GetOrganization(id string) (*Organization, error) {
+	input := map[string]interface{}{
+		"0": map[string]interface{}{
+			"json": map[string]interface{}{
+				"organizationId": id,
+			},
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	encodedInput := url.QueryEscape(string(jsonBytes))
+
+	endpoint := fmt.Sprintf("organization.get?batch=1&input=%s", encodedInput)
+	resp, err := c.doSessionRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response []TRPCResponse[Organization]
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return nil, err
+	}
+
+	if len(response) == 0 {
+		return nil, nil
+	}
+
+	org := response[0].Result.Data.Json
+	if org.ID == "" {
+		return nil, nil
+	}
+
+	return &org, nil
+}
+
+func (c *DokployClient) DeleteOrganization(id string) error {
+	// Payload for TRPC might be {"0":{"json":{"organizationId": "..."}}}
+	payload := map[string]interface{}{
+		"0": map[string]interface{}{
+			"json": map[string]interface{}{
+				"organizationId": id,
+			},
+		},
+	}
+	_, err := c.doSessionRequest("POST", "organization.remove?batch=1", payload)
+	return err
+}
+
+// --- API Key ---
+
+type ApiKey struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Key         string `json:"key"`
+	Prefix      string `json:"prefix"`
+	Description string `json:"description"`
+	UserId      string `json:"userId"`
+	CreatedAt   string `json:"createdAt"`
+}
+
+func (c *DokployClient) CreateApiKey(name, description, organizationID string) (*ApiKey, error) {
+	// payload: {"0":{"json":{"name":"...","expiresIn":null,"prefix":"...","metadata":{"organizationId":"..."},"rateLimitEnabled":false...}}}
+	payload := map[string]interface{}{
+		"0": map[string]interface{}{
+			"json": map[string]interface{}{
+				"name":        name,
+				"description": description,
+				"expiresIn":   nil,
+				"prefix":      "dk", // default prefix?
+				"metadata": map[string]string{
+					"organizationId": organizationID,
+				},
+				"rateLimitEnabled": false,
+			},
+			"meta": map[string]interface{}{
+				"values": map[string]interface{}{
+					"expiresIn": []string{"undefined"},
+				},
+			},
+		},
+	}
+
+	resp, err := c.doSessionRequest("POST", "user.createApiKey?batch=1", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var response []TRPCResponse[ApiKey]
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return nil, err
+	}
+
+	if len(response) == 0 {
+		return nil, fmt.Errorf("empty response from user.createApiKey")
+	}
+
+	return &response[0].Result.Data.Json, nil
+}
+
+func (c *DokployClient) DeleteApiKey(id string) error {
+	payload := map[string]interface{}{
+		"0": map[string]interface{}{
+			"json": map[string]interface{}{
+				"id": id,
+			},
+		},
+	}
+	_, err := c.doSessionRequest("POST", "user.removeApiKey?batch=1", payload)
+	return err
+}
+
+func (c *DokployClient) GetApiKey(id string) (*ApiKey, error) {
+	input := map[string]interface{}{
+		"0": map[string]interface{}{
+			"json": nil,
+		},
+	}
+
+	jsonBytes, _ := json.Marshal(input)
+	encodedInput := url.QueryEscape(string(jsonBytes))
+
+	endpoint := fmt.Sprintf("user.getApiKeys?batch=1&input=%s", encodedInput)
+	resp, err := c.doSessionRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response []TRPCResponse[[]ApiKey]
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return nil, err
+	}
+
+	if len(response) == 0 {
+		return nil, fmt.Errorf("empty response from user.getApiKeys")
+	}
+
+	keys := response[0].Result.Data.Json
+	for _, key := range keys {
+		if key.ID == id {
+			return &key, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // --- User ---
