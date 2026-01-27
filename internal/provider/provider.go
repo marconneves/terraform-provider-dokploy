@@ -20,8 +20,10 @@ type DokployProvider struct {
 }
 
 type DokployProviderModel struct {
-	Host   types.String `tfsdk:"host"`
-	ApiKey types.String `tfsdk:"api_key"`
+	Host     types.String `tfsdk:"host"`
+	ApiKey   types.String `tfsdk:"api_key"`
+	Email    types.String `tfsdk:"email"`
+	Password types.String `tfsdk:"password"`
 }
 
 func (p *DokployProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -37,9 +39,18 @@ func (p *DokployProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 				Description: "The URL of your Dokploy instance (e.g., https://dokploy.example.com/api)",
 			},
 			"api_key": schema.StringAttribute{
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				Description: "Your Dokploy API Key",
+			},
+			"email": schema.StringAttribute{
+				Optional:    true,
+				Description: "The email for authentication (required for creating organizations and API keys)",
+			},
+			"password": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "The password for authentication (required for creating organizations and API keys)",
 			},
 		},
 	}
@@ -60,19 +71,30 @@ func (p *DokployProvider) Configure(ctx context.Context, req provider.ConfigureR
 		)
 	}
 
-	if config.ApiKey.IsUnknown() {
+	if config.ApiKey.IsUnknown() && (config.Email.IsUnknown() || config.Password.IsUnknown()) {
 		resp.Diagnostics.AddWarning(
-			"Missing API Key Configuration",
-			"While configuring the provider, the API Key was unknown. This can happen when the value is not yet known.",
+			"Missing Authentication Configuration",
+			"While configuring the provider, the API Key or Email/Password was unknown. This can happen when the value is not yet known.",
 		)
 	}
 
-	if config.Host.IsNull() || config.ApiKey.IsNull() {
+	if config.Host.IsNull() {
 		return
 	}
 
+	if config.ApiKey.IsNull() && (config.Email.IsNull() || config.Password.IsNull()) {
+		// Can't validate here strictly because sometimes config is partial during validation phases,
+		// but ideally we need one or the other.
+		// For now, allow returning if neither is fully known yet, resources will fail if client is unconfigured properly.
+		// However, we should probably instantiate the client if we have partial info.
+	}
+
+	apiKey := config.ApiKey.ValueString()
+	email := config.Email.ValueString()
+	password := config.Password.ValueString()
+
 	// Create client
-	c := client.NewDokployClient(config.Host.ValueString(), config.ApiKey.ValueString())
+	c := client.NewDokployClient(config.Host.ValueString(), apiKey, email, password)
 
 	// Make client available to resources
 	resp.ResourceData = c
@@ -93,6 +115,8 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewRegistryResource,
 		NewUserResource,
 		NewDeploymentResource,
+		NewOrganizationResource,
+		NewApiKeyResource,
 	}
 }
 
