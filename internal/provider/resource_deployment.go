@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/marconneves/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/dokploy"
 )
 
 var _ resource.Resource = &DeploymentResource{}
@@ -22,7 +22,7 @@ func NewDeploymentResource() resource.Resource {
 }
 
 type DeploymentResource struct {
-	client *client.DokployClient
+	client *dokploy.Client
 }
 
 type DeploymentResourceModel struct {
@@ -73,9 +73,9 @@ func (r *DeploymentResource) Configure(_ context.Context, req resource.Configure
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*client.DokployClient)
+	client, ok := req.ProviderData.(*dokploy.Client)
 	if !ok {
-		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *client.DokployClient, got: %T", req.ProviderData))
+		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *dokploy.Client, got: %T", req.ProviderData))
 		return
 	}
 	r.client = client

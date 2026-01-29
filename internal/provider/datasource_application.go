@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/marconneves/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/dokploy"
 )
 
 var _ datasource.DataSource = &ApplicationDataSource{}
@@ -17,7 +17,7 @@ func NewApplicationDataSource() datasource.DataSource {
 }
 
 type ApplicationDataSource struct {
-	client *client.DokployClient
+	client *dokploy.Client
 }
 
 type ApplicationDataSourceModel struct {
@@ -144,9 +144,9 @@ func (d *ApplicationDataSource) Configure(_ context.Context, req datasource.Conf
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*client.DokployClient)
+	client, ok := req.ProviderData.(*dokploy.Client)
 	if !ok {
-		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *client.DokployClient, got: %T", req.ProviderData))
+		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *dokploy.Client, got: %T", req.ProviderData))
 		return
 	}
 	d.client = client
@@ -214,7 +214,7 @@ func (d *ApplicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	resp.Diagnostics.Append(diags...)
 }
 
-func (d *ApplicationDataSource) populateState(state *ApplicationDataSourceModel, app *client.Application, ctx context.Context) {
+func (d *ApplicationDataSource) populateState(state *ApplicationDataSourceModel, app *dokploy.Application, ctx context.Context) {
 	state.ID = types.StringValue(app.ID)
 	state.Name = types.StringValue(app.Name)
 	state.ProjectID = types.StringValue(app.ProjectID)

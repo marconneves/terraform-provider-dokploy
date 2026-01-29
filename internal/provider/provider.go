@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/marconneves/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/dokploy"
 )
 
 var _ provider.Provider = &DokployProvider{}
@@ -94,7 +94,7 @@ func (p *DokployProvider) Configure(ctx context.Context, req provider.ConfigureR
 	password := config.Password.ValueString()
 
 	// Create client
-	c := client.NewDokployClient(config.Host.ValueString(), apiKey, email, password)
+	c := dokploy.NewClient(config.Host.ValueString(), apiKey, email, password)
 
 	// Make client available to resources
 	resp.ResourceData = c
