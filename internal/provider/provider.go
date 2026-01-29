@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/marconneves/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/dokploy"
 )
 
 var _ provider.Provider = &DokployProvider{}
@@ -82,19 +82,12 @@ func (p *DokployProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
-	if config.ApiKey.IsNull() && (config.Email.IsNull() || config.Password.IsNull()) {
-		// Can't validate here strictly because sometimes config is partial during validation phases,
-		// but ideally we need one or the other.
-		// For now, allow returning if neither is fully known yet, resources will fail if client is unconfigured properly.
-		// However, we should probably instantiate the client if we have partial info.
-	}
-
 	apiKey := config.ApiKey.ValueString()
 	email := config.Email.ValueString()
 	password := config.Password.ValueString()
 
 	// Create client
-	c := client.NewDokployClient(config.Host.ValueString(), apiKey, email, password)
+	c := dokploy.NewClient(config.Host.ValueString(), apiKey, email, password)
 
 	// Make client available to resources
 	resp.ResourceData = c

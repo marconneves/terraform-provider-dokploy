@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/marconneves/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/dokploy"
 )
 
 var _ resource.Resource = &ApplicationResource{}
@@ -22,7 +22,7 @@ func NewApplicationResource() resource.Resource {
 }
 
 type ApplicationResource struct {
-	client *client.DokployClient
+	client *dokploy.Client
 }
 
 type ApplicationResourceModel struct {
@@ -175,9 +175,9 @@ func (r *ApplicationResource) Configure(_ context.Context, req resource.Configur
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*client.DokployClient)
+	client, ok := req.ProviderData.(*dokploy.Client)
 	if !ok {
-		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *client.DokployClient, got: %T", req.ProviderData))
+		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *dokploy.Client, got: %T", req.ProviderData))
 		return
 	}
 	r.client = client
@@ -216,7 +216,7 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	app := client.Application{
+	app := dokploy.Application{
 		Name:               plan.Name.ValueString(),
 		ProjectID:          plan.ProjectID.ValueString(),
 		EnvironmentID:      plan.EnvironmentID.ValueString(),
@@ -533,7 +533,7 @@ func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateReq
 		plan.DockerBuildStage = types.StringValue("")
 	}
 
-	app := client.Application{
+	app := dokploy.Application{
 		ID:                 plan.ID.ValueString(),
 		Name:               plan.Name.ValueString(),
 		ProjectID:          plan.ProjectID.ValueString(),

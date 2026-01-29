@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/marconneves/terraform-provider-dokploy/internal/client"
+	"github.com/marconneves/terraform-provider-dokploy/internal/dokploy"
 )
 
 var _ datasource.DataSource = &DomainDataSource{}
@@ -17,7 +17,7 @@ func NewDomainDataSource() datasource.DataSource {
 }
 
 type DomainDataSource struct {
-	client *client.DokployClient
+	client *dokploy.Client
 }
 
 type DomainDataSourceModel struct {
@@ -70,9 +70,9 @@ func (d *DomainDataSource) Configure(_ context.Context, req datasource.Configure
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*client.DokployClient)
+	client, ok := req.ProviderData.(*dokploy.Client)
 	if !ok {
-		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *client.DokployClient, got: %T", req.ProviderData))
+		resp.Diagnostics.AddError("Unexpected Data Source Type", fmt.Sprintf("Expected *dokploy.Client, got: %T", req.ProviderData))
 		return
 	}
 	d.client = client
