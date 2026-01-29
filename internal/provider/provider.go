@@ -82,13 +82,6 @@ func (p *DokployProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
-	if config.ApiKey.IsNull() && (config.Email.IsNull() || config.Password.IsNull()) {
-		// Can't validate here strictly because sometimes config is partial during validation phases,
-		// but ideally we need one or the other.
-		// For now, allow returning if neither is fully known yet, resources will fail if client is unconfigured properly.
-		// However, we should probably instantiate the client if we have partial info.
-	}
-
 	apiKey := config.ApiKey.ValueString()
 	email := config.Email.ValueString()
 	password := config.Password.ValueString()

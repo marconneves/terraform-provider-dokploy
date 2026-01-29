@@ -88,7 +88,7 @@ func (c *Client) SignIn() error {
 		return err
 	}
 
-	url := fmt.Sprintf("%s/auth/sign-in/email", c.BaseURL)
+	var url string
 	if strings.HasSuffix(c.BaseURL, "/api") {
 		url = fmt.Sprintf("%s/auth/sign-in/email", c.BaseURL)
 	} else {
@@ -172,7 +172,7 @@ func (c *Client) doSessionRequest(method, endpoint string, body interface{}) ([]
 	return respBytes, nil
 }
 
-// TRPCResponse generic wrapper
+// TRPCResponse generic wrapper.
 type TRPCResponse[T any] struct {
 	Result struct {
 		Data struct {
